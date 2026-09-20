@@ -12,7 +12,8 @@
  *   - setup    (amber)  → required gaps and/or optional adapters not ready
  *   - offline  (red)    → API unreachable
  */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import { FOCUS_RING, Sym } from "./cockpit/cockpitShared";
@@ -107,10 +108,16 @@ function CheckList({
   );
 }
 
+/** Popover width (matches the `w-[22rem]` class below) — used to place it. */
+const POPOVER_WIDTH = 352;
+
 export function PreflightChip() {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ left: 12, top: 56 });
 
   const preflight = useQuery<PreflightResponse>({
     queryKey: ["preflight"],
@@ -119,23 +126,59 @@ export function PreflightChip() {
     refetchInterval: 20_000,
   });
 
-  // Close the popover on outside click + Escape.
+  // Anchor the portaled popover under the trigger — recomputed on open,
+  // resize, and scroll since the panel is no longer a DOM descendant of the
+  // trigger (see the class comment: it must escape the top bar's stacking
+  // context so page content below it can never paint over it).
+  const updatePosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const panelHeight = panelRef.current?.getBoundingClientRect().height || 320;
+    const margin = 12;
+    const alignToLogicalEnd = document.documentElement.dir !== "rtl";
+    const preferredLeft = alignToLogicalEnd ? rect.right - POPOVER_WIDTH : rect.left;
+    const left = Math.min(
+      window.innerWidth - POPOVER_WIDTH - margin,
+      Math.max(margin, preferredLeft),
+    );
+    const below = rect.bottom + 8;
+    const top =
+      below + panelHeight <= window.innerHeight - margin
+        ? below
+        : Math.max(margin, rect.top - panelHeight - 8);
+    setPosition({ left, top });
+  }, []);
+
+  // Close the popover on outside click + Escape; keep position pinned to the
+  // trigger while open.
   useEffect(() => {
     if (!open) return;
     function onDown(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node))
+      const target = e.target as Node;
+      if (!rootRef.current?.contains(target) && !panelRef.current?.contains(target)) {
         setOpen(false);
+      }
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
     }
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
     };
-  }, [open]);
+  }, [open, updatePosition]);
+
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
+  }, [open, updatePosition]);
 
   // Resolve the tone + compact chip label (details live in the popover).
   let tone: Tone;
@@ -169,9 +212,11 @@ export function PreflightChip() {
   return (
     <div ref={rootRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => data && setOpen((v) => !v)}
         aria-expanded={data ? open : undefined}
+        aria-controls={data ? "preflight-popover" : undefined}
         aria-label={t("shell.preflight.readinessLabel", { label })}
         className={`flex h-9 items-center gap-2 whitespace-nowrap rounded-full px-3 text-xs font-medium transition ${TONE_CLASS[tone]} ${FOCUS_RING} ${
           data
@@ -186,64 +231,70 @@ export function PreflightChip() {
         {label}
       </button>
 
-      {open && data && (
-        <div
-          role="region"
-          aria-label={t("shell.preflight.setupChecklist")}
-          className="pop-in absolute right-0 top-full z-30 mt-2 w-[22rem] max-w-[calc(100vw-1.5rem)] max-h-[70vh] overflow-y-auto custom-scrollbar rounded-xl border border-outline bg-surface-lowest p-3 shadow-2xl"
-        >
-          <p className="hud mb-2.5 text-[12px] text-text-dim">
-            {t("shell.preflight.systemReadiness")}
-          </p>
-          {allGreen ? (
-            <p className="mb-3 text-[14px] text-secondary">
-              {t("shell.preflight.allChecksPassed")}
-            </p>
-          ) : data.ready ? (
-            <p className="mb-3 text-[13px] leading-relaxed text-text-variant">
-              {t("shell.preflight.requiredChecksPassed")}
-            </p>
-          ) : (
-            <p className="mb-3 text-[13px] leading-relaxed text-text-variant">
-              {t("shell.preflight.fixRequiredItems")}
-            </p>
-          )}
+      {open && data
+        ? createPortal(
+            <div
+              id="preflight-popover"
+              ref={panelRef}
+              role="region"
+              aria-label={t("shell.preflight.setupChecklist")}
+              style={{ left: position.left, top: position.top }}
+              className="pop-in fixed z-30 w-[22rem] max-w-[calc(100vw-1.5rem)] max-h-[70vh] overflow-y-auto custom-scrollbar rounded-xl border border-outline bg-surface-lowest p-3 shadow-2xl"
+            >
+              <p className="hud mb-2.5 text-[12px] text-text-dim">
+                {t("shell.preflight.systemReadiness")}
+              </p>
+              {allGreen ? (
+                <p className="mb-3 text-[14px] text-secondary">
+                  {t("shell.preflight.allChecksPassed")}
+                </p>
+              ) : data.ready ? (
+                <p className="mb-3 text-[13px] leading-relaxed text-text-variant">
+                  {t("shell.preflight.requiredChecksPassed")}
+                </p>
+              ) : (
+                <p className="mb-3 text-[13px] leading-relaxed text-text-variant">
+                  {t("shell.preflight.fixRequiredItems")}
+                </p>
+              )}
 
-          <div className="space-y-4">
-            <section>
-              <div className="mb-2 flex items-baseline justify-between gap-2">
-                <h3 className="text-[13px] font-semibold text-text-main">
-                  {t("shell.preflight.required")}
-                </h3>
-                <span className="hud text-[11px] text-text-dim">
-                  {t("shell.preflight.blocksReady")}
-                </span>
-              </div>
-              <CheckList
-                checks={requiredChecks}
-                emptyLabel={t("shell.preflight.noRequiredChecks")}
-                defaultGroupLabel={t("shell.preflight.checks")}
-              />
-            </section>
+              <div className="space-y-4">
+                <section>
+                  <div className="mb-2 flex items-baseline justify-between gap-2">
+                    <h3 className="text-[13px] font-semibold text-text-main">
+                      {t("shell.preflight.required")}
+                    </h3>
+                    <span className="hud text-[11px] text-text-dim">
+                      {t("shell.preflight.blocksReady")}
+                    </span>
+                  </div>
+                  <CheckList
+                    checks={requiredChecks}
+                    emptyLabel={t("shell.preflight.noRequiredChecks")}
+                    defaultGroupLabel={t("shell.preflight.checks")}
+                  />
+                </section>
 
-            <section className="border-t border-outline/70 pt-3">
-              <div className="mb-2 flex items-baseline justify-between gap-2">
-                <h3 className="text-[13px] font-semibold text-text-main">
-                  {t("shell.preflight.optional")}
-                </h3>
-                <span className="hud text-[11px] text-text-dim">
-                  {t("shell.preflight.taskSpecific")}
-                </span>
+                <section className="border-t border-outline/70 pt-3">
+                  <div className="mb-2 flex items-baseline justify-between gap-2">
+                    <h3 className="text-[13px] font-semibold text-text-main">
+                      {t("shell.preflight.optional")}
+                    </h3>
+                    <span className="hud text-[11px] text-text-dim">
+                      {t("shell.preflight.taskSpecific")}
+                    </span>
+                  </div>
+                  <CheckList
+                    checks={optionalChecks}
+                    emptyLabel={t("shell.preflight.noOptionalChecks")}
+                    defaultGroupLabel={t("shell.preflight.checks")}
+                  />
+                </section>
               </div>
-              <CheckList
-                checks={optionalChecks}
-                emptyLabel={t("shell.preflight.noOptionalChecks")}
-                defaultGroupLabel={t("shell.preflight.checks")}
-              />
-            </section>
-          </div>
-        </div>
-      )}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
