@@ -39,7 +39,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version-file: application/playground/frontend/.node-version
+          node-version: 20
           cache: npm
           cache-dependency-path: application/playground/frontend/package-lock.json
 
