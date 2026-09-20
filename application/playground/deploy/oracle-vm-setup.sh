@@ -26,6 +26,12 @@
 #   curl -fsSL https://raw.githubusercontent.com/wilkiyoshi/matriAIx_teste/<branch>/application/playground/deploy/oracle-vm-setup.sh | sudo bash
 # or, from a checkout:
 #   sudo REPO_BRANCH=claude/eloquent-ride-etuq97 bash oracle-vm-setup.sh
+#
+# Set IMPORT_PERSONA_1M=1 to also download the production Persona 1M coreset
+# (~6.8GB from Hugging Face) so "Persona World" can sample from
+# matraix-persona-1m instead of just the ~200-persona dev-sample fixture.
+# Skipped by default since it's a large one-time download. Re-run later on an
+# already-provisioned box with the same command plus that flag to add it.
 
 set -euo pipefail
 
@@ -114,6 +120,17 @@ sudo -u "${SERVICE_USER}" bash -lc "
   uv pip install -e packages/harbor-langsmith
   uv pip install -e packages/rewardkit
 "
+
+if [[ "${IMPORT_PERSONA_1M:-0}" == "1" ]]; then
+  echo "==> Downloading the Persona 1M coreset (~6.8GB — this can take a while)"
+  sudo -u "${SERVICE_USER}" bash -lc "
+    set -euo pipefail
+    export PATH=\"\$HOME/.local/bin:\$PATH\"
+    cd '${APP_DIR}'
+    .venv/bin/hf download MatrAIx2026/MatrAIx_Persona_1M_Public_Release \
+      --repo-type dataset --local-dir persona/datasets/matraix-persona-1m/release
+  "
+fi
 
 echo "==> Writing systemd unit"
 cat > /etc/systemd/system/matraix-playground.service <<EOF

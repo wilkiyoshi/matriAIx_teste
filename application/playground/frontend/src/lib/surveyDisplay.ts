@@ -20,7 +20,7 @@ const TYPE_LABELS: Record<string, string> = {
  * Mint (`secondary`) is reserved for pass/valid status — never use it here,
  * or type chips collide with the Valid badge in the same stats row.
  *
- *   single_choice → primary (blue)
+ *   single_choice → primary (orange)
  *   likert        → accent (violet)
  *   multi_choice  → warn (amber)
  *   free_text     → neutral outline
