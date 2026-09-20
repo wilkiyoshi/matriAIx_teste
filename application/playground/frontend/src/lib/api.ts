@@ -36,6 +36,18 @@ import type {
 } from "./types";
 import { PERSONA_BENCH_POOL, PERSONA_CARD_PREVIEW_LIMIT } from "./types";
 import { normalizePersonaPoolName } from "./personaDisplay";
+import { getStoredAnthropicApiKey } from "./anthropicApiKey";
+
+/**
+ * Header carrying the browser-local Anthropic key (see `anthropicApiKey.ts`).
+ * Attached only to requests that can use it (preflight, job launch) — never
+ * logged, never stored server-side, forwarded only into that one job's
+ * subprocess env.
+ */
+function anthropicKeyHeaders(): Record<string, string> {
+  const key = getStoredAnthropicApiKey();
+  return key ? { "X-Anthropic-Api-Key": key } : {};
+}
 
 /** Backend `/persona-pool/personas` rejects limit > 500. */
 const PERSONA_POOL_CARDS_LIMIT_MAX = 500;
@@ -125,7 +137,8 @@ function normalizePersonaPoolDetail(
 }
 
 export const api = {
-  getPreflight: () => request<PreflightResponse>("/api/preflight"),
+  getPreflight: () =>
+    request<PreflightResponse>("/api/preflight", { headers: anthropicKeyHeaders() }),
   getChatbotSidecars: () => request<ChatbotSidecarsResponse>("/api/chatbot-sidecars"),
   startChatbotSidecar: (applicationId: string) =>
     request<StartChatbotSidecarResponse>(
@@ -219,6 +232,7 @@ export const api = {
     request<HarborJobLaunchResponse>("/api/harbor/jobs", {
       method: "POST",
       body: JSON.stringify(body),
+      headers: anthropicKeyHeaders(),
     }),
 
   listPersonaDatasets: () =>

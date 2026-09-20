@@ -43,7 +43,7 @@ import urllib.request
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Dict, List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -273,7 +273,7 @@ def _smart_attribute_embed_preflight() -> Dict[str, Any]:
     }
 
 
-def preflight_checks() -> List[Dict[str, Any]]:
+def preflight_checks(*, anthropic_key_override: bool = False) -> List[Dict[str, Any]]:
     """Compute the user-facing readiness checklist for application tasks.
 
     Reports each probe as ``{"group", "name", "ok", "detail", "optional?"}``.
@@ -300,14 +300,21 @@ def preflight_checks() -> List[Dict[str, Any]]:
       download the sentence-transformers model; Exact match does not need it.
 
     RecAI / multi-agent medical are not probed here.
+
+    ``anthropic_key_override`` reflects an ``X-Anthropic-Api-Key`` header sent
+    by the browser for this request only (see the Settings panel). It is
+    never written to the environment, a file, or a log — it only flips this
+    one boolean so the checklist reflects a key the server itself never
+    holds.
     """
     checks: List[Dict[str, Any]] = []
 
     # ---- Core — required model credentials + optional per-provider ---- #
     openai_key = bool(os.environ.get("OPENAI_API_KEY"))
-    anthropic_key = bool(
+    anthropic_env_key = bool(
         os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("CLAUDE_API_KEY")
     )
+    anthropic_key = anthropic_env_key or anthropic_key_override
     dashscope_key = bool(os.environ.get("DASHSCOPE_API_KEY"))
     openrouter_key = bool(os.environ.get("OPENROUTER_API_KEY"))
     gemini_key = bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
@@ -362,9 +369,13 @@ def preflight_checks() -> List[Dict[str, Any]]:
             "ok": anthropic_key,
             "optional": True,
             "detail": (
-                "Configured. Used by Claude persona models (Playground default)."
+                "Provided from your browser for this run only "
+                "(Settings — never stored on the server)."
+                if anthropic_key and not anthropic_env_key
+                else "Configured. Used by Claude persona models (Playground default)."
                 if anthropic_key
-                else "Not configured. Needed for Anthropic / Claude persona models."
+                else "Not configured. Add your key in Settings (top bar), or set "
+                "it on the server, to use Anthropic / Claude persona models."
             ),
         }
     )
@@ -626,8 +637,10 @@ def create_app(catalog_path: Optional[str] = None) -> FastAPI:
     @app.get(
         "/api/preflight", response_model=schemas.PreflightResponse, tags=["health"]
     )
-    def preflight() -> Dict[str, Any]:
-        checks = preflight_checks()
+    def preflight(
+        x_anthropic_api_key: Optional[str] = Header(default=None),
+    ) -> Dict[str, Any]:
+        checks = preflight_checks(anthropic_key_override=bool(x_anthropic_api_key))
         # Optional adapters (finance/medical sidecars) report their status but
         # do not gate overall readiness — the core surfaces run without them.
         ready = all(c["ok"] for c in checks if not c.get("optional"))
@@ -831,6 +844,7 @@ def create_app(catalog_path: Optional[str] = None) -> FastAPI:
     def launch_harbor_job(
         body: schemas.HarborJobLaunchRequest,
         services: AppState = Depends(get_services),
+        x_anthropic_api_key: Optional[str] = Header(default=None),
     ) -> Dict[str, Any]:
         from backend.service.harbor_job_service import (
             _read_task_metadata_type,
@@ -857,6 +871,16 @@ def create_app(catalog_path: Optional[str] = None) -> FastAPI:
             resolved_plane = normalize_execution_plane(
                 body.plane or default_execution_plane()
             )
+            # A key typed into the browser's Settings panel travels only as
+            # this request header — it is never written to os.environ, a
+            # config file, or a log; it just rides along in-memory into the
+            # subprocess env for this one job's trials (see
+            # HarborJobService._extra_launch_env).
+            extra_launch_env = (
+                {"ANTHROPIC_API_KEY": x_anthropic_api_key}
+                if x_anthropic_api_key
+                else None
+            )
             job_name = services.harbor_jobs.launch(
                 task_path=body.taskPath,
                 sample_size=body.sampleSize,
@@ -880,6 +904,7 @@ def create_app(catalog_path: Optional[str] = None) -> FastAPI:
                 persona_filters=body.personaFilters,
                 cohort_id=body.cohortId,
                 use_entire_pool=body.useEntirePool,
+                extra_launch_env=extra_launch_env,
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc

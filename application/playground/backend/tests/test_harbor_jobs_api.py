@@ -203,6 +203,37 @@ def test_launch_harbor_job_with_persona_ids(client, fake_harbor_jobs):
     assert fake_harbor_jobs.launches[-1]["execution_mode"] == "auto"
 
 
+def test_launch_harbor_job_forwards_browser_anthropic_key(client, fake_harbor_jobs):
+    """A key from the frontend Settings panel arrives as a header and is
+    handed to the service as ``extra_launch_env`` — process env only, never
+    written into the request body/job record."""
+    resp = client.post(
+        "/api/harbor/jobs",
+        json={
+            "taskPath": "application/tasks/example-survey_product-feedback",
+            "personaModel": "anthropic/claude-haiku-4-5",
+        },
+        headers={"X-Anthropic-Api-Key": "sk-ant-browser-secret"},
+    )
+    assert resp.status_code == 200
+    assert "sk-ant-browser-secret" not in resp.text
+    assert fake_harbor_jobs.launches[-1]["extra_launch_env"] == {
+        "ANTHROPIC_API_KEY": "sk-ant-browser-secret"
+    }
+
+
+def test_launch_harbor_job_without_browser_key_sends_no_extra_env(client, fake_harbor_jobs):
+    resp = client.post(
+        "/api/harbor/jobs",
+        json={
+            "taskPath": "application/tasks/example-survey_product-feedback",
+            "personaModel": "anthropic/claude-haiku-4-5",
+        },
+    )
+    assert resp.status_code == 200
+    assert fake_harbor_jobs.launches[-1]["extra_launch_env"] is None
+
+
 def test_launch_harbor_job_prefers_chat_application_context(client, fake_harbor_jobs):
     resp = client.post(
         "/api/harbor/jobs",

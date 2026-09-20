@@ -225,6 +225,37 @@ def test_preflight_anthropic_check_optional(client, monkeypatch):
     assert anthropic["ok"] is True
 
 
+def test_preflight_accepts_browser_supplied_anthropic_key(client, monkeypatch):
+    """A key typed into the frontend's Settings panel rides the request as a
+    header — never an env var — and flips readiness without the server
+    holding or echoing the value."""
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("CLAUDE_API_KEY", raising=False)
+    monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.delenv("XAI_API_KEY", raising=False)
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.delenv("ZAI_API_KEY", raising=False)
+
+    resp = client.get("/api/preflight")
+    assert resp.json()["ready"] is False
+
+    resp = client.get(
+        "/api/preflight", headers={"X-Anthropic-Api-Key": "sk-ant-browser-secret"}
+    )
+    body = resp.json()
+    assert body["ready"] is True
+    anthropic = next(c for c in body["checks"] if c["name"] == "Anthropic credentials")
+    assert anthropic["ok"] is True
+    assert "sk-ant-browser-secret" not in resp.text
+    import os as _os
+
+    assert _os.environ.get("ANTHROPIC_API_KEY") is None
+
+
 class _FakeOkResponse:
     status = 200
 
