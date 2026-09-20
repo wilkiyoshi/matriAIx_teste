@@ -20,6 +20,26 @@ def test_health(client):
     assert resp.json() == {"status": "ok"}
 
 
+def test_cors_extra_origins_from_env(monkeypatch):
+    """A deployment (e.g. a GitHub Pages build pointed at this backend) opts
+    a cross-origin frontend in via MATRIX_EXTRA_CORS_ORIGINS, without
+    touching the hardcoded Vite dev-server origins."""
+    from backend.api.app import DEV_ORIGINS, _cors_allowed_origins
+
+    monkeypatch.delenv("MATRIX_EXTRA_CORS_ORIGINS", raising=False)
+    assert _cors_allowed_origins() == DEV_ORIGINS
+
+    monkeypatch.setenv(
+        "MATRIX_EXTRA_CORS_ORIGINS",
+        "https://wilkiyoshi.github.io, https://example.com ,",
+    )
+    assert _cors_allowed_origins() == [
+        *DEV_ORIGINS,
+        "https://wilkiyoshi.github.io",
+        "https://example.com",
+    ]
+
+
 def test_preflight_shape(client):
     resp = client.get("/api/preflight")
     assert resp.status_code == 200

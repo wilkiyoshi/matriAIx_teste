@@ -37,6 +37,7 @@ markdown_extensions:
 
 nav:
   - Home: README.md
+  - Playground (live demo): https://wilkiyoshi.github.io/matriAIx_teste/playground/
   - Start here:
       - Quickstart: quickstart.md
       - Configuration: configuration.md

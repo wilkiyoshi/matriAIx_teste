@@ -8,6 +8,7 @@ on:
     paths:
       - "docs/**"
       - "mkdocs.yml"
+      - "application/playground/frontend/**"
       - ".github/workflows/gh-pages.yml"
   workflow_dispatch:
 
@@ -33,8 +34,35 @@ jobs:
       - name: Install MkDocs Material
         run: pip install mkdocs-material
 
-      - name: Build site
+      - name: Build handbook
         run: mkdocs build --site-dir _site
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: application/playground/frontend/.node-version
+          cache: npm
+          cache-dependency-path: application/playground/frontend/package-lock.json
+
+      - name: Install Playground frontend deps
+        working-directory: application/playground/frontend
+        run: npm ci
+
+      - name: Build Playground (points at the live backend)
+        working-directory: application/playground/frontend
+        env:
+          # This is a GitHub *project* page (wilkiyoshi.github.io/matriAIx_teste/),
+          # so the SPA is served under that repo-name prefix, not the domain root.
+          VITE_BASE_PATH: /matriAIx_teste/playground/
+          # Backend host — see application/playground/DEPLOY.md for how it's
+          # provisioned. Override by setting the PLAYGROUND_API_BASE_URL
+          # repository variable (Settings > Secrets and variables > Actions).
+          VITE_API_BASE_URL: ${{ vars.PLAYGROUND_API_BASE_URL || 'https://129.148.34.114.nip.io' }}
+        run: npm run build
+
+      - name: Merge Playground build into the site
+        run: |
+          mkdir -p _site/playground
+          cp -r application/playground/frontend/dist/. _site/playground/
 
       - uses: actions/upload-pages-artifact@v3
         with:

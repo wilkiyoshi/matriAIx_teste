@@ -65,6 +65,21 @@ DEV_ORIGINS: List[str] = [
 ]
 
 
+def _cors_allowed_origins() -> List[str]:
+    """Dev origins plus any deployment adds via ``MATRIX_EXTRA_CORS_ORIGINS``.
+
+    Lets a frontend built for a different origin (e.g. a GitHub Pages build
+    pointed at this backend) call the API without hardcoding that origin here.
+    Comma-separated, blank entries ignored.
+    """
+    extra = [
+        origin.strip()
+        for origin in (os.environ.get("MATRIX_EXTRA_CORS_ORIGINS") or "").split(",")
+        if origin.strip()
+    ]
+    return DEV_ORIGINS + extra
+
+
 class _NoCacheIndexMiddleware(BaseHTTPMiddleware):
     """Prevent browsers from serving a stale SPA shell after frontend rebuilds."""
 
@@ -621,7 +636,7 @@ def create_app(catalog_path: Optional[str] = None) -> FastAPI:
     # --- CORS (Vite dev server) --------------------------------------- #
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=DEV_ORIGINS,
+        allow_origins=_cors_allowed_origins(),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

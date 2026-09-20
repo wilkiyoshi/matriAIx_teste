@@ -64,8 +64,21 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Backend origin for a build served from a different origin than its API
+ * (e.g. this SPA published to GitHub Pages, talking to a backend on a
+ * separate host). Set at build time via `VITE_API_BASE_URL`
+ * (e.g. `https://1.2.3.4.nip.io`); empty by default, which keeps every path
+ * relative — the same-origin deploy this app normally runs as.
+ */
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+
+function apiUrl(path: string): string {
+  return `${API_BASE_URL}${path}`;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
+  const response = await fetch(apiUrl(path), {
     ...init,
     headers: {
       ...(init?.body ? { "Content-Type": "application/json" } : {}),
@@ -83,7 +96,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 async function downloadFile(path: string, fallbackFilename: string): Promise<void> {
-  const response = await fetch(path);
+  const response = await fetch(apiUrl(path));
   if (!response.ok) {
     let message = response.statusText || "Download failed";
     try {
@@ -413,9 +426,13 @@ export const api = {
       });
     }
 
-    const response = await fetch("/api/persona-pool/generate?stream=1", {
+    const response = await fetch(apiUrl("/api/persona-pool/generate?stream=1"), {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/x-ndjson",
+        ...anthropicKeyHeaders(),
+      },
       body: JSON.stringify(body),
     });
     if (!response.ok || !response.body) {
@@ -537,5 +554,7 @@ export function listOsAppEvalTasks(): Promise<OsAppEvalTasksResponse> {
 }
 
 export function harborTrialLiveScreenshotUrl(jobName: string, trialName: string): string {
-  return `/api/harbor/jobs/${encodeURIComponent(jobName)}/trials/${encodeURIComponent(trialName)}/live-screenshot`;
+  return apiUrl(
+    `/api/harbor/jobs/${encodeURIComponent(jobName)}/trials/${encodeURIComponent(trialName)}/live-screenshot`,
+  );
 }

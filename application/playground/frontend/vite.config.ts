@@ -15,10 +15,14 @@ import react from "@vitejs/plugin-react";
  *   `VITE_API_TARGET` env var when the backend runs on another port.
  * - `build.outDir` is `dist`; the API mounts that directory as StaticFiles
  *   when it exists, serving the built SPA from the same origin in production.
+ * - `base`: set `VITE_BASE_PATH` (e.g. `/playground/`) when the built SPA is
+ *   served from a sub-path, such as a GitHub Pages project site, so asset
+ *   URLs resolve correctly. Defaults to `/` (same-origin root deploy).
  */
 const API_TARGET = process.env.VITE_API_TARGET ?? "http://localhost:8765";
 
 export default defineConfig({
+  base: process.env.VITE_BASE_PATH ?? "/",
   plugins: [react()],
   resolve: {
     alias: {
