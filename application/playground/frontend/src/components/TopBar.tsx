@@ -91,16 +91,19 @@ export function TopBar({
         glass ? "absolute inset-x-0 top-0" : "relative"
       }`}
     >
-      {/* Only the logo column is allowed to shrink (minmax(0,1fr) + min-w-0
-          below). Nav and the right-side icon cluster are both `auto`: with a
-          flexible column on both sides, a grid track can still size below
-          its content's min-content and let content overflow into the
-          adjacent track — which is exactly how the readiness pill used to
-          render on top of the "Runs" nav item. Content-sized columns don't
-          have that failure mode. Nav itself only appears at `lg` (see
+      {/* Equal flexible side columns are what keeps the nav pill centered in
+          the viewport: both get the same share of the leftover space, so the
+          middle track lands dead centre. They are plain `1fr`
+          (= `minmax(auto,1fr)`), never `minmax(0,1fr)`: a zero floor lets a
+          track size below its content's min-content and spill into the
+          neighbouring track, which is exactly how the readiness pill used to
+          render on top of the "Runs" nav item. With the `auto` floor each
+          side stops shrinking at its own content width — the nav simply
+          drifts off-centre instead of being overlapped. Same reason there is
+          no `min-w-0` on the logo. Nav itself only appears at `lg` (see
           below) — full labels + the icon cluster don't fit before that. */}
-      <div className="grid h-14 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-5">
-        <div className="flex min-w-0 items-center justify-start">
+      <div className="grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-3 px-5">
+        <div className="flex items-center justify-start">
           <MatrAIxLogo size="md" onClick={onOpenHome} />
         </div>
 

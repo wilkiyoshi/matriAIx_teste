@@ -229,10 +229,14 @@ export function PreflightChip() {
           className={`h-2 w-2 flex-none rounded-full ${DOT_CLASS[tone]} ${tone === "checking" ? "animate-rb-pulse" : ""}`}
           aria-hidden
         />
-        {/* Text collapses below `xl` so this pill can't push into the nav
-            pill at common laptop widths (~1024–1200px) — see TopBar's grid:
-            the nav pill has a fixed min-width and doesn't shrink, so this
-            row must. */}
+        {/* Text collapses below `xl` so this row stays narrow enough for
+            TopBar's two flexible side columns to stay equal — that symmetry
+            is what keeps the nav pill centered in the viewport. The nav has
+            a fixed min-width and doesn't shrink, so whenever this row needs
+            more than its fair share of the leftover space the nav drifts
+            (never overlaps — see TopBar's grid comment). The dot still
+            carries the tone while collapsed, and the full text stays in
+            `title` and in the popover. */}
         <span className="hidden xl:inline">{label}</span>
       </button>
 
