@@ -218,17 +218,22 @@ export function PreflightChip() {
         aria-expanded={data ? open : undefined}
         aria-controls={data ? "preflight-popover" : undefined}
         aria-label={t("shell.preflight.readinessLabel", { label })}
-        className={`flex h-9 items-center gap-2 whitespace-nowrap rounded-full px-3 text-xs font-medium transition ${TONE_CLASS[tone]} ${FOCUS_RING} ${
+        title={label}
+        className={`flex h-9 w-9 flex-none items-center justify-center gap-2 whitespace-nowrap rounded-full text-xs font-medium transition xl:w-auto xl:justify-start xl:px-3 ${TONE_CLASS[tone]} ${FOCUS_RING} ${
           data
             ? "cursor-pointer hover:opacity-90 active:scale-[0.98]"
             : "cursor-default"
         }`}
       >
         <span
-          className={`h-2 w-2 rounded-full ${DOT_CLASS[tone]} ${tone === "checking" ? "animate-rb-pulse" : ""}`}
+          className={`h-2 w-2 flex-none rounded-full ${DOT_CLASS[tone]} ${tone === "checking" ? "animate-rb-pulse" : ""}`}
           aria-hidden
         />
-        {label}
+        {/* Text collapses below `xl` so this pill can't push into the nav
+            pill at common laptop widths (~1024–1200px) — see TopBar's grid:
+            the nav pill has a fixed min-width and doesn't shrink, so this
+            row must. */}
+        <span className="hidden xl:inline">{label}</span>
       </button>
 
       {open && data

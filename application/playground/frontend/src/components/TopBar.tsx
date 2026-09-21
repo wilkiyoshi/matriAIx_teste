@@ -91,13 +91,21 @@ export function TopBar({
         glass ? "absolute inset-x-0 top-0" : "relative"
       }`}
     >
-      <div className="grid h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-5">
+      {/* Only the logo column is allowed to shrink (minmax(0,1fr) + min-w-0
+          below). Nav and the right-side icon cluster are both `auto`: with a
+          flexible column on both sides, a grid track can still size below
+          its content's min-content and let content overflow into the
+          adjacent track — which is exactly how the readiness pill used to
+          render on top of the "Runs" nav item. Content-sized columns don't
+          have that failure mode. Nav itself only appears at `lg` (see
+          below) — full labels + the icon cluster don't fit before that. */}
+      <div className="grid h-14 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-5">
         <div className="flex min-w-0 items-center justify-start">
           <MatrAIxLogo size="md" onClick={onOpenHome} />
         </div>
 
         <nav
-          className="nasa-glass-pill hidden items-center rounded-full p-1 backdrop-blur md:flex"
+          className="nasa-glass-pill hidden items-center rounded-full p-1 backdrop-blur lg:flex"
           aria-label={t("shell.nav.application")}
         >
           <div className="grid grid-cols-5 items-center">

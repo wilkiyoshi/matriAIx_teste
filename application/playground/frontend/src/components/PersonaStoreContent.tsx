@@ -47,8 +47,10 @@ import type {
 } from "@/lib/types";
 import { PERSONA_BENCH_POOL, PERSONA_PRODUCTION_1M_POOL } from "@/lib/types";
 
-/** Page size when loading a full small pool (API max per request). */
-const PERSONA_POOL_PAGE = 50;
+/** Page size when loading a full small pool — the API's actual per-request
+ * max (see PERSONA_POOL_CARDS_LIMIT_MAX in lib/api.ts), so any pool at or
+ * under that size loads in a single round trip instead of several. */
+const PERSONA_POOL_PAGE = 500;
 /** 1M browse/search window — always filled in the background for filter/search. */
 const PERSONA_1M_PREVIEW_CAP = 10_000;
 /** Personas fetched per background page for the 10k preview (API max 500). */
