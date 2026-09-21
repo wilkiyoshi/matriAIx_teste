@@ -1,5 +1,13 @@
 /// <reference types="vite/client" />
 
+/** Build id injected by vite.config.ts (`define`) — see AppFooter. */
+declare const __MATRAIX_BUILD_ID__: string;
+
+interface Window {
+  /** Same build id, for a quick `window.__MATRAIX_BUILD__` cache check. */
+  __MATRAIX_BUILD__?: string;
+}
+
 /**
  * Ambient type declarations for the Vite client environment.
  *

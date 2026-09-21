@@ -21,8 +21,20 @@ import react from "@vitejs/plugin-react";
  */
 const API_TARGET = process.env.VITE_API_TARGET ?? "http://localhost:8765";
 
+/**
+ * Short build id shown in the footer and on `window.__MATRAIX_BUILD__`, so a
+ * stale browser cache is trivial to spot: compare what two browsers report.
+ * CI passes the commit sha; local builds fall back to a timestamp.
+ */
+const BUILD_ID =
+  process.env.GITHUB_SHA?.slice(0, 7) ??
+  new Date().toISOString().slice(0, 16).replace("T", " ");
+
 export default defineConfig({
   base: process.env.VITE_BASE_PATH ?? "/",
+  define: {
+    __MATRAIX_BUILD_ID__: JSON.stringify(BUILD_ID),
+  },
   plugins: [react()],
   resolve: {
     alias: {

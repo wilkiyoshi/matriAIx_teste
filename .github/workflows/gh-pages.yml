@@ -53,6 +53,8 @@ jobs:
           # This is a GitHub *project* page (wilkiyoshi.github.io/matriAIx_teste/),
           # so the SPA is served under that repo-name prefix, not the domain root.
           VITE_BASE_PATH: /matriAIx_teste/playground/
+          # Stamped into the footer so a stale browser cache is easy to spot.
+          GITHUB_SHA: ${{ github.sha }}
           # Backend host — see application/playground/DEPLOY.md for how it's
           # provisioned. Override by setting the PLAYGROUND_API_BASE_URL
           # repository variable (Settings > Secrets and variables > Actions).

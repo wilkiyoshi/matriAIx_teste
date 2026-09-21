@@ -21,6 +21,9 @@ export interface AppFooterProps {
   variant?: "solid" | "glass";
 }
 
+/** Also on `window` so it can be read from the console without hunting the UI. */
+if (typeof window !== "undefined") window.__MATRAIX_BUILD__ = __MATRAIX_BUILD_ID__;
+
 export function AppFooter({ context, variant = "solid" }: AppFooterProps) {
   const { t } = useI18n();
   // Read-only: shares PreflightChip's cache. No refetchInterval -> no extra poll.
@@ -72,6 +75,9 @@ export function AppFooter({ context, variant = "solid" }: AppFooterProps) {
             aria-hidden
           />
           {label}
+          <span className="text-text-dim/70" title="build">
+            · {__MATRAIX_BUILD_ID__}
+          </span>
         </div>
       </div>
     </footer>
